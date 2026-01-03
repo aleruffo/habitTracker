@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-struct ProgressView: View {
+struct StatsView: View {
     @EnvironmentObject private var habitStore: HabitStore
     @State private var selectedMonth = Date()
     @State private var selectedDate: Date?
@@ -106,9 +106,6 @@ struct ProgressView: View {
                     .background(Color(.systemBackground))
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                     
-                    // Gamified Stats
-                    GamifiedStatsView()
-                    
                     // Habit breakdown
                     if !habitStore.activeHabits.isEmpty {
                         habitBreakdownView
@@ -117,7 +114,7 @@ struct ProgressView: View {
                 .padding()
             }
             .background(Color(.systemGroupedBackground))
-            .navigationTitle("Progress")
+            .navigationTitle("Stats")
         }
     }
     
@@ -208,6 +205,6 @@ struct ProgressView: View {
 }
 
 #Preview {
-    ProgressView()
+    StatsView()
         .environmentObject(HabitStore())
 }

@@ -19,11 +19,17 @@ struct ContentView: View {
                 }
                 .tag(Tab.today)
             
-            ProgressView()
+            StatsView()
                 .tabItem {
-                    Label(Tab.progress.rawValue, systemImage: Tab.progress.icon)
+                    Label(Tab.stats.rawValue, systemImage: Tab.stats.icon)
                 }
-                .tag(Tab.progress)
+                .tag(Tab.stats)
+            
+            JourneyView()
+                .tabItem {
+                    Label(Tab.journey.rawValue, systemImage: Tab.journey.icon)
+                }
+                .tag(Tab.journey)
             
             LabView()
                 .tabItem {

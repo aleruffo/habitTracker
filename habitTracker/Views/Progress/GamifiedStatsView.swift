@@ -7,8 +7,40 @@
 
 import SwiftUI
 
-struct GamifiedStatsView: View {
+struct JourneyView: View {
     @EnvironmentObject private var habitStore: HabitStore
+    
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 20) {
+                    // Atomic Habits Quote
+                    quoteCard
+                    
+                    // Level Progress
+                    levelProgressCard
+                    
+                    // 1% Better Compound Growth
+                    compoundGrowthCard
+                    
+                    // Never Miss Twice Recovery Stats
+                    if habitStore.userProfile.neverMissTwiceRecoveries > 0 {
+                        neverMissTwiceCard
+                    }
+                    
+                    // Identity Progress
+                    if !habitStore.userProfile.identityStatements.isEmpty {
+                        identityProgressView
+                    }
+                }
+                .padding()
+            }
+            .background(Color(.systemGroupedBackground))
+            .navigationTitle("Journey")
+        }
+    }
+    
+    // MARK: - Level Progress
     
     private var levelIcon: String {
         switch habitStore.userProfile.level {
@@ -38,7 +70,7 @@ struct GamifiedStatsView: View {
         }
     }
     
-    var body: some View {
+    private var levelProgressCard: some View {
         VStack(alignment: .leading, spacing: 16) {
             // Header
             HStack {
@@ -106,37 +138,221 @@ struct GamifiedStatsView: View {
                         .foregroundStyle(.green)
                 }
             }
+        }
+        .padding()
+        .background(Color(.systemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+    
+    // MARK: - Atomic Habits Quote Card
+    
+    private var quoteCard: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "quote.opening")
+                .font(.title2)
+                .foregroundStyle(.secondary)
             
-            Divider()
+            Text(habitStore.userProfile.currentQuote)
+                .font(.subheadline)
+                .italic()
+                .multilineTextAlignment(.center)
+                .foregroundStyle(.primary)
             
-            // Quick stats
-            HStack(spacing: 0) {
-                StatMiniView(
-                    value: "\(habitStore.userProfile.totalCompletions)",
-                    label: "Total Done",
-                    icon: "checkmark.circle.fill",
-                    color: .green
-                )
+            Text("— Atomic Habits")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding()
+        .frame(maxWidth: .infinity)
+        .background(
+            LinearGradient(
+                colors: [Color.blue.opacity(0.1), Color.purple.opacity(0.1)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+    
+    // MARK: - 1% Better Compound Growth
+    
+    private var compoundGrowthCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: "chart.line.uptrend.xyaxis")
+                    .font(.title2)
+                    .foregroundStyle(.green)
                 
-                Divider()
-                    .frame(height: 40)
+                Text("The Power of 1% Better")
+                    .font(.headline)
                 
-                StatMiniView(
-                    value: "\(habitStore.userProfile.currentStreak)",
-                    label: "Current",
-                    icon: "flame.fill",
-                    color: .orange
-                )
+                Spacer()
+            }
+            
+            Text("Small habits compound over time. 1% better every day = 37x better in a year.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            
+            HStack(spacing: 20) {
+                VStack {
+                    Text("\(habitStore.userProfile.daysSinceStart)")
+                        .font(.title)
+                        .fontWeight(.bold)
+                        .foregroundStyle(.green)
+                    Text("Days")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 
-                Divider()
-                    .frame(height: 40)
+                VStack {
+                    Text(habitStore.userProfile.compoundGrowthMessage)
+                        .font(.title3)
+                        .fontWeight(.bold)
+                        .foregroundStyle(.blue)
+                    Text("Compound Growth")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 
-                StatMiniView(
-                    value: "\(habitStore.userProfile.bestStreak)",
-                    label: "Best",
-                    icon: "trophy.fill",
-                    color: .yellow
-                )
+                Spacer()
+                
+                // Visual representation
+                ZStack {
+                    Circle()
+                        .stroke(Color.green.opacity(0.2), lineWidth: 8)
+                        .frame(width: 60, height: 60)
+                    
+                    Circle()
+                        .trim(from: 0, to: min(habitStore.userProfile.compoundGrowthPercentage / 37, 1))
+                        .stroke(Color.green, style: StrokeStyle(lineWidth: 8, lineCap: .round))
+                        .frame(width: 60, height: 60)
+                        .rotationEffect(.degrees(-90))
+                    
+                    Text("1%")
+                        .font(.caption)
+                        .fontWeight(.bold)
+                        .foregroundStyle(.green)
+                }
+            }
+            .padding(.top, 8)
+        }
+        .padding()
+        .background(Color(.systemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+    
+    // MARK: - Never Miss Twice Card
+    
+    private var neverMissTwiceCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: "arrow.counterclockwise.circle.fill")
+                    .font(.title2)
+                    .foregroundStyle(.blue)
+                
+                Text("Never Miss Twice")
+                    .font(.headline)
+                
+                Spacer()
+            }
+            
+            Text("\"The first mistake is never the one that ruins you. It's the spiral of repeated mistakes.\"")
+                .font(.caption)
+                .italic()
+                .foregroundStyle(.secondary)
+            
+            HStack(spacing: 20) {
+                VStack {
+                    Text("\(habitStore.userProfile.neverMissTwiceRecoveries)")
+                        .font(.title)
+                        .fontWeight(.bold)
+                        .foregroundStyle(.blue)
+                    Text("Recoveries")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                
+                Spacer()
+                
+                // Recovery badges
+                if habitStore.userProfile.neverMissTwiceRecoveries >= 10 {
+                    recoveryBadge(count: 10, title: "Resilient", color: .bronze)
+                }
+                if habitStore.userProfile.neverMissTwiceRecoveries >= 25 {
+                    recoveryBadge(count: 25, title: "Persistent", color: .silver)
+                }
+                if habitStore.userProfile.neverMissTwiceRecoveries >= 50 {
+                    recoveryBadge(count: 50, title: "Unstoppable", color: .gold)
+                }
+            }
+        }
+        .padding()
+        .background(Color(.systemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+    
+    private func recoveryBadge(count: Int, title: String, color: BadgeColor) -> some View {
+        VStack(spacing: 4) {
+            Image(systemName: "medal.fill")
+                .font(.title2)
+                .foregroundStyle(color.color)
+            Text(title)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+    }
+    
+    private enum BadgeColor {
+        case bronze, silver, gold
+        
+        var color: Color {
+            switch self {
+            case .bronze: return Color(red: 0.8, green: 0.5, blue: 0.2)
+            case .silver: return Color(red: 0.75, green: 0.75, blue: 0.75)
+            case .gold: return Color(red: 1, green: 0.84, blue: 0)
+            }
+        }
+    }
+    
+    // MARK: - Identity Progress
+    
+    private var identityProgressView: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: "person.fill.checkmark")
+                    .font(.title2)
+                    .foregroundStyle(.purple)
+                
+                Text("Identity Progress")
+                    .font(.headline)
+                
+                Spacer()
+            }
+            
+            Text("\"Every action is a vote for the type of person you wish to become.\"")
+                .font(.caption)
+                .italic()
+                .foregroundStyle(.secondary)
+            
+            ForEach(habitStore.userProfile.identityStatements) { identity in
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text(identity.fullStatement)
+                            .font(.subheadline)
+                        Spacer()
+                        Text("\(identity.votesCount) votes")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    
+                    SwiftUI.ProgressView(value: identity.identityStrength.progress)
+                        .tint(.purple)
+                    
+                    Text(identity.identityStrength.description)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.vertical, 4)
             }
         }
         .padding()
@@ -145,31 +361,7 @@ struct GamifiedStatsView: View {
     }
 }
 
-struct StatMiniView: View {
-    let value: String
-    let label: String
-    let icon: String
-    let color: Color
-    
-    var body: some View {
-        VStack(spacing: 4) {
-            HStack(spacing: 4) {
-                Image(systemName: icon)
-                    .font(.caption)
-                    .foregroundStyle(color)
-                Text(value)
-                    .font(.headline)
-            }
-            Text(label)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity)
-    }
-}
-
 #Preview {
-    GamifiedStatsView()
+    JourneyView()
         .environmentObject(HabitStore())
-        .padding()
 }

@@ -11,99 +11,34 @@ struct LabView: View {
     @EnvironmentObject private var habitStore: HabitStore
     @State private var showingAddReward = false
     @State private var showingAddExperiment = false
+    @State private var showingAddBehavior = false
     @State private var selectedExperiment: Experiment?
+    @State private var selectedSection = 0
     
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
-                    // Temptation Bundling Section
-                    VStack(alignment: .leading, spacing: 16) {
-                        HStack {
-                            Text("Temptation Bundling")
-                                .font(.headline)
-                            
-                            Spacer()
-                            
-                            Button {
-                                showingAddReward = true
-                            } label: {
-                                Image(systemName: "plus.circle.fill")
-                                    .font(.title3)
-                            }
-                        }
-                        
-                        Text("Link rewards to habits to build motivation")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        
-                        if habitStore.rewards.isEmpty {
-                            emptyRewardsView
-                        } else {
-                            ForEach(habitStore.rewards) { reward in
-                                RewardCardView(reward: reward)
-                                    .contextMenu {
-                                        Button(role: .destructive) {
-                                            habitStore.deleteReward(reward)
-                                        } label: {
-                                            Label("Delete", systemImage: "trash")
-                                        }
-                                    }
-                            }
-                        }
-                    }
-                    
-                    Divider()
-                        .padding(.vertical, 8)
-                    
-                    // Habit Experiments Section
-                    VStack(alignment: .leading, spacing: 16) {
-                        HStack {
-                            Text("Habit Experiments")
-                                .font(.headline)
-                            
-                            Spacer()
-                            
-                            Button {
-                                showingAddExperiment = true
-                            } label: {
-                                Image(systemName: "plus.circle.fill")
-                                    .font(.title3)
-                            }
-                        }
-                        
-                        Text("Try new habits for a set period before committing")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        
-                        if habitStore.experiments.isEmpty {
-                            emptyExperimentsView
-                        } else {
-                            ForEach(habitStore.experiments) { experiment in
-                                ExperimentCardView(experiment: experiment)
-                                    .onTapGesture {
-                                        selectedExperiment = experiment
-                                    }
-                                    .contextMenu {
-                                        if !experiment.isCompleted {
-                                            Button {
-                                                habitStore.endExperiment(experiment)
-                                            } label: {
-                                                Label("End Early", systemImage: "stop.circle")
-                                            }
-                                        }
-                                        
-                                        Button(role: .destructive) {
-                                            habitStore.deleteExperiment(experiment)
-                                        } label: {
-                                            Label("Delete", systemImage: "trash")
-                                        }
-                                    }
-                            }
-                        }
+            VStack(spacing: 0) {
+                // Section picker
+                Picker("Section", selection: $selectedSection) {
+                    Text("Scorecard").tag(0)
+                    Text("Rewards").tag(1)
+                    Text("Experiments").tag(2)
+                }
+                .pickerStyle(.segmented)
+                .padding()
+                
+                ScrollView {
+                    switch selectedSection {
+                    case 0:
+                        habitScorecardSection
+                    case 1:
+                        temptationBundlingSection
+                    case 2:
+                        experimentSection
+                    default:
+                        EmptyView()
                     }
                 }
-                .padding()
             }
             .background(Color(.systemGroupedBackground))
             .navigationTitle("Habit Lab")
@@ -113,10 +48,382 @@ struct LabView: View {
             .sheet(isPresented: $showingAddExperiment) {
                 AddExperimentView()
             }
+            .sheet(isPresented: $showingAddBehavior) {
+                AddBehaviorView()
+            }
             .sheet(item: $selectedExperiment) { experiment in
                 ExperimentDetailView(experiment: experiment)
             }
         }
+    }
+    
+    // MARK: - Habit Scorecard Section
+    
+    private var habitScorecardSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // Header
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Image(systemName: "list.clipboard.fill")
+                        .font(.title2)
+                        .foregroundStyle(.blue)
+                    
+                    Text("Habit Scorecard")
+                        .font(.headline)
+                    
+                    Spacer()
+                    
+                    Button {
+                        showingAddBehavior = true
+                    } label: {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.title3)
+                    }
+                }
+                
+                Text("\"The process of behavior change always starts with awareness.\"")
+                    .font(.caption)
+                    .italic()
+                    .foregroundStyle(.secondary)
+                
+                Text("List your daily behaviors and rate them: + (positive), = (neutral), - (negative)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding()
+            .background(Color(.systemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            
+            // Balance Score
+            if !habitStore.habitScorecard.behaviors.isEmpty {
+                scorecardSummary
+            }
+            
+            // Behaviors by category
+            if habitStore.habitScorecard.behaviors.isEmpty {
+                emptyScorecardView
+            } else {
+                ForEach(BehaviorCategory.allCases, id: \.self) { category in
+                    let behaviors = habitStore.habitScorecard.behaviors.filter { $0.category == category }
+                    if !behaviors.isEmpty {
+                        behaviorCategorySection(category: category, behaviors: behaviors)
+                    }
+                }
+            }
+            
+            // Suggestions
+            if habitStore.habitScorecard.behaviors.isEmpty {
+                suggestionSection
+            }
+        }
+        .padding()
+    }
+    
+    private var scorecardSummary: some View {
+        VStack(spacing: 12) {
+            HStack(spacing: 20) {
+                VStack {
+                    Text("\(habitStore.habitScorecard.positiveCount)")
+                        .font(.title)
+                        .fontWeight(.bold)
+                        .foregroundStyle(.green)
+                    Text("Good")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                
+                VStack {
+                    Text("\(habitStore.habitScorecard.neutralCount)")
+                        .font(.title)
+                        .fontWeight(.bold)
+                        .foregroundStyle(.gray)
+                    Text("Neutral")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                
+                VStack {
+                    Text("\(habitStore.habitScorecard.negativeCount)")
+                        .font(.title)
+                        .fontWeight(.bold)
+                        .foregroundStyle(.red)
+                    Text("Bad")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                
+                Spacer()
+                
+                // Balance gauge
+                ZStack {
+                    Circle()
+                        .stroke(Color(.systemGray5), lineWidth: 8)
+                        .frame(width: 60, height: 60)
+                    
+                    Circle()
+                        .trim(from: 0, to: CGFloat(max(0, habitStore.habitScorecard.balanceScore + 100)) / 200)
+                        .stroke(
+                            habitStore.habitScorecard.balanceScore > 0 ? Color.green :
+                            habitStore.habitScorecard.balanceScore < 0 ? Color.red : Color.gray,
+                            style: StrokeStyle(lineWidth: 8, lineCap: .round)
+                        )
+                        .frame(width: 60, height: 60)
+                        .rotationEffect(.degrees(-90))
+                    
+                    VStack(spacing: 0) {
+                        Text("\(habitStore.habitScorecard.balanceScore > 0 ? "+" : "")\(habitStore.habitScorecard.balanceScore)")
+                            .font(.system(size: 14, weight: .bold))
+                        Text("Score")
+                            .font(.system(size: 8))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+        .padding()
+        .background(Color(.systemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+    
+    private func behaviorCategorySection(category: BehaviorCategory, behaviors: [ScorecardBehavior]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: category.icon)
+                    .foregroundStyle(.secondary)
+                Text(category.displayName)
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+            }
+            .padding(.horizontal)
+            .padding(.top, 8)
+            
+            ForEach(behaviors) { behavior in
+                behaviorRow(behavior)
+            }
+        }
+        .background(Color(.systemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+    
+    private func behaviorRow(_ behavior: ScorecardBehavior) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: behavior.rating.icon)
+                .font(.title3)
+                .foregroundStyle(ratingColor(behavior.rating))
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(behavior.behavior)
+                    .font(.subheadline)
+                
+                Text(behavior.rating.actionAdvice)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            
+            Spacer()
+            
+            if behavior.linkedHabitId != nil {
+                Image(systemName: "link.circle.fill")
+                    .foregroundStyle(.blue)
+            }
+        }
+        .padding()
+        .background(ratingColor(behavior.rating).opacity(0.05))
+        .contextMenu {
+            Button {
+                var updated = behavior
+                updated.rating = .positive
+                habitStore.updateScorecardBehavior(updated)
+            } label: {
+                Label("Mark as Positive (+)", systemImage: "plus.circle")
+            }
+            
+            Button {
+                var updated = behavior
+                updated.rating = .neutral
+                habitStore.updateScorecardBehavior(updated)
+            } label: {
+                Label("Mark as Neutral (=)", systemImage: "equal.circle")
+            }
+            
+            Button {
+                var updated = behavior
+                updated.rating = .negative
+                habitStore.updateScorecardBehavior(updated)
+            } label: {
+                Label("Mark as Negative (-)", systemImage: "minus.circle")
+            }
+            
+            Divider()
+            
+            if behavior.rating == .positive && behavior.linkedHabitId == nil {
+                Button {
+                    let habit = habitStore.convertBehaviorToHabit(behavior)
+                    habitStore.addHabit(habit)
+                } label: {
+                    Label("Convert to Habit", systemImage: "arrow.right.circle")
+                }
+            }
+            
+            Button(role: .destructive) {
+                habitStore.deleteScorecardBehavior(behavior)
+            } label: {
+                Label("Delete", systemImage: "trash")
+            }
+        }
+    }
+    
+    private func ratingColor(_ rating: BehaviorRating) -> Color {
+        switch rating {
+        case .positive: return .green
+        case .neutral: return .gray
+        case .negative: return .red
+        }
+    }
+    
+    private var emptyScorecardView: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "list.clipboard")
+                .font(.largeTitle)
+                .foregroundStyle(.blue)
+            
+            Text("Start Your Scorecard")
+                .font(.subheadline)
+                .fontWeight(.semibold)
+            
+            Text("List your daily behaviors to become aware of your habits")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 24)
+        .background(Color(.systemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+    
+    private var suggestionSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Common Behaviors")
+                .font(.subheadline)
+                .fontWeight(.semibold)
+            
+            Text("Tap to add to your scorecard")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            
+            FlowLayout(spacing: 8) {
+                ForEach(ScorecardSuggestions.commonMorningBehaviors.prefix(4), id: \.self) { suggestion in
+                    Button {
+                        let behavior = ScorecardBehavior(behavior: suggestion, category: .morning)
+                        habitStore.addScorecardBehavior(behavior)
+                    } label: {
+                        Text(suggestion)
+                            .font(.caption)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(Color.blue.opacity(0.1))
+                            .foregroundStyle(.blue)
+                            .clipShape(Capsule())
+                    }
+                }
+            }
+        }
+        .padding()
+        .background(Color(.systemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+    
+    // MARK: - Temptation Bundling Section
+    
+    private var temptationBundlingSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text("Temptation Bundling")
+                    .font(.headline)
+                
+                Spacer()
+                
+                Button {
+                    showingAddReward = true
+                } label: {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.title3)
+                }
+            }
+            
+            Text("\"After I [HABIT I NEED], I will [HABIT I WANT].\"")
+                .font(.caption)
+                .italic()
+                .foregroundStyle(.secondary)
+            
+            if habitStore.rewards.isEmpty {
+                emptyRewardsView
+            } else {
+                ForEach(habitStore.rewards) { reward in
+                    RewardCardView(reward: reward)
+                        .contextMenu {
+                            Button(role: .destructive) {
+                                habitStore.deleteReward(reward)
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                        }
+                }
+            }
+        }
+        .padding()
+    }
+    
+    // MARK: - Experiment Section
+    
+    private var experimentSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text("Habit Experiments")
+                    .font(.headline)
+                
+                Spacer()
+                
+                Button {
+                    showingAddExperiment = true
+                } label: {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.title3)
+                }
+            }
+            
+            Text("Try new habits for a set period before committing")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            
+            if habitStore.experiments.isEmpty {
+                emptyExperimentsView
+            } else {
+                ForEach(habitStore.experiments) { experiment in
+                    ExperimentCardView(experiment: experiment)
+                        .onTapGesture {
+                            selectedExperiment = experiment
+                        }
+                        .contextMenu {
+                            if !experiment.isCompleted {
+                                Button {
+                                    habitStore.endExperiment(experiment)
+                                } label: {
+                                    Label("End Early", systemImage: "stop.circle")
+                                }
+                            }
+                            
+                            Button(role: .destructive) {
+                                habitStore.deleteExperiment(experiment)
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                        }
+                }
+            }
+        }
+        .padding()
     }
     
     private var emptyRewardsView: some View {
@@ -157,6 +464,131 @@ struct LabView: View {
         .padding(.vertical, 24)
         .background(Color(.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+}
+
+// MARK: - Flow Layout for Suggestions
+
+struct FlowLayout: Layout {
+    var spacing: CGFloat = 8
+    
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let result = FlowResult(in: proposal.width ?? 0, subviews: subviews, spacing: spacing)
+        return result.size
+    }
+    
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let result = FlowResult(in: bounds.width, subviews: subviews, spacing: spacing)
+        for (index, subview) in subviews.enumerated() {
+            subview.place(at: CGPoint(x: bounds.minX + result.positions[index].x,
+                                      y: bounds.minY + result.positions[index].y),
+                         proposal: .unspecified)
+        }
+    }
+    
+    struct FlowResult {
+        var size: CGSize = .zero
+        var positions: [CGPoint] = []
+        
+        init(in maxWidth: CGFloat, subviews: Subviews, spacing: CGFloat) {
+            var x: CGFloat = 0
+            var y: CGFloat = 0
+            var rowHeight: CGFloat = 0
+            
+            for subview in subviews {
+                let size = subview.sizeThatFits(.unspecified)
+                
+                if x + size.width > maxWidth && x > 0 {
+                    x = 0
+                    y += rowHeight + spacing
+                    rowHeight = 0
+                }
+                
+                positions.append(CGPoint(x: x, y: y))
+                rowHeight = max(rowHeight, size.height)
+                x += size.width + spacing
+                
+                self.size.width = max(self.size.width, x)
+            }
+            
+            self.size.height = y + rowHeight
+        }
+    }
+}
+
+// MARK: - Add Behavior View
+
+struct AddBehaviorView: View {
+    @EnvironmentObject private var habitStore: HabitStore
+    @Environment(\.dismiss) private var dismiss
+    
+    @State private var behaviorText = ""
+    @State private var selectedRating: BehaviorRating = .neutral
+    @State private var selectedCategory: BehaviorCategory = .morning
+    
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    Text("\"Does this behavior help me become the type of person I wish to be?\"")
+                        .font(.caption)
+                        .italic()
+                        .foregroundStyle(.secondary)
+                }
+                
+                Section("Behavior") {
+                    TextField("What do you do?", text: $behaviorText)
+                }
+                
+                Section("Rating") {
+                    Picker("Rating", selection: $selectedRating) {
+                        ForEach(BehaviorRating.allCases, id: \.self) { rating in
+                            HStack {
+                                Image(systemName: rating.icon)
+                                Text(rating.displayName)
+                            }
+                            .tag(rating)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    
+                    Text(selectedRating.actionAdvice)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                
+                Section("When/Where") {
+                    Picker("Category", selection: $selectedCategory) {
+                        ForEach(BehaviorCategory.allCases, id: \.self) { category in
+                            Label(category.displayName, systemImage: category.icon)
+                                .tag(category)
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Add Behavior")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                }
+                
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Add") {
+                        let behavior = ScorecardBehavior(
+                            behavior: behaviorText,
+                            rating: selectedRating,
+                            category: selectedCategory
+                        )
+                        habitStore.addScorecardBehavior(behavior)
+                        dismiss()
+                    }
+                    .disabled(behaviorText.isEmpty)
+                }
+            }
+        }
     }
 }
 
